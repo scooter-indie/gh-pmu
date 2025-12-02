@@ -1,26 +1,4 @@
 {
-  "hooks": {
-    "SessionStart": [
-      {
-        "matcher": "startup",
-        "hooks": [
-          {
-            "type": "prompt",
-            "prompt": "Run /gh-workflow immediately to activate GitHub workflow integration for this session."
-          }
-        ]
-      },
-      {
-        "matcher": "compact",
-        "hooks": [
-          {
-            "type": "prompt",
-            "prompt": "Run /gh-workflow immediately to reactivate GitHub workflow integration after compact."
-          }
-        ]
-      }
-    ]
-  },
   "permissions": {
     "allow": [],
     "deny": [
