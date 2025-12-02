@@ -1,0 +1,91 @@
+package api
+
+// Project represents a GitHub Projects v2 project
+type Project struct {
+	ID     string
+	Number int
+	Title  string
+	URL    string
+	Owner  ProjectOwner
+	Closed bool
+}
+
+// ProjectOwner represents the owner of a project
+type ProjectOwner struct {
+	Type  string // "User" or "Organization"
+	Login string
+}
+
+// ProjectField represents a field in a GitHub project
+type ProjectField struct {
+	ID       string
+	Name     string
+	DataType string
+	Options  []FieldOption // For SINGLE_SELECT fields
+}
+
+// FieldOption represents an option for a single-select field
+type FieldOption struct {
+	ID   string
+	Name string
+}
+
+// Issue represents a GitHub issue
+type Issue struct {
+	ID         string
+	Number     int
+	Title      string
+	Body       string
+	State      string
+	URL        string
+	Repository Repository
+	Author     Actor
+	Assignees  []Actor
+	Labels     []Label
+	Milestone  *Milestone
+}
+
+// Repository represents a GitHub repository
+type Repository struct {
+	Owner string
+	Name  string
+}
+
+// Actor represents a GitHub user or bot
+type Actor struct {
+	Login string
+}
+
+// Label represents a GitHub label
+type Label struct {
+	Name  string
+	Color string
+}
+
+// Milestone represents a GitHub milestone
+type Milestone struct {
+	Title string
+}
+
+// ProjectItem represents an issue or PR within a project
+type ProjectItem struct {
+	ID          string
+	Issue       *Issue
+	FieldValues []FieldValue
+}
+
+// FieldValue represents a field value on a project item
+type FieldValue struct {
+	Field string // Field name
+	Value string // Resolved value
+}
+
+// SubIssue represents a sub-issue relationship
+type SubIssue struct {
+	ID       string
+	Number   int
+	Title    string
+	State    string
+	URL      string
+	ParentID string
+}

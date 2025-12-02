@@ -1,0 +1,399 @@
+package api
+
+import (
+	"fmt"
+
+	graphql "github.com/cli/shurcooL-graphql"
+)
+
+// GetProject fetches a project by owner and number
+func (c *Client) GetProject(owner string, number int) (*Project, error) {
+	if c.gql == nil {
+		return nil, fmt.Errorf("GraphQL client not initialized - are you authenticated with gh?")
+	}
+
+	// First try as user project
+	project, err := c.getUserProject(owner, number)
+	if err == nil {
+		return project, nil
+	}
+
+	// If that fails, try as organization project
+	project, err = c.getOrgProject(owner, number)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get project %s/%d: %w", owner, number, err)
+	}
+
+	return project, nil
+}
+
+func (c *Client) getUserProject(owner string, number int) (*Project, error) {
+	var query struct {
+		User struct {
+			ProjectV2 struct {
+				ID     string
+				Number int
+				Title  string
+				URL    string `graphql:"url"`
+				Closed bool
+			} `graphql:"projectV2(number: $number)"`
+		} `graphql:"user(login: $owner)"`
+	}
+
+	variables := map[string]interface{}{
+		"owner":  graphql.String(owner),
+		"number": graphql.Int(number),
+	}
+
+	err := c.gql.Query("GetUserProject", &query, variables)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Project{
+		ID:     query.User.ProjectV2.ID,
+		Number: query.User.ProjectV2.Number,
+		Title:  query.User.ProjectV2.Title,
+		URL:    query.User.ProjectV2.URL,
+		Closed: query.User.ProjectV2.Closed,
+		Owner: ProjectOwner{
+			Type:  "User",
+			Login: owner,
+		},
+	}, nil
+}
+
+func (c *Client) getOrgProject(owner string, number int) (*Project, error) {
+	var query struct {
+		Organization struct {
+			ProjectV2 struct {
+				ID     string
+				Number int
+				Title  string
+				URL    string `graphql:"url"`
+				Closed bool
+			} `graphql:"projectV2(number: $number)"`
+		} `graphql:"organization(login: $owner)"`
+	}
+
+	variables := map[string]interface{}{
+		"owner":  graphql.String(owner),
+		"number": graphql.Int(number),
+	}
+
+	err := c.gql.Query("GetOrgProject", &query, variables)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Project{
+		ID:     query.Organization.ProjectV2.ID,
+		Number: query.Organization.ProjectV2.Number,
+		Title:  query.Organization.ProjectV2.Title,
+		URL:    query.Organization.ProjectV2.URL,
+		Closed: query.Organization.ProjectV2.Closed,
+		Owner: ProjectOwner{
+			Type:  "Organization",
+			Login: owner,
+		},
+	}, nil
+}
+
+// GetProjectFields fetches all fields for a project
+func (c *Client) GetProjectFields(projectID string) ([]ProjectField, error) {
+	if c.gql == nil {
+		return nil, fmt.Errorf("GraphQL client not initialized - are you authenticated with gh?")
+	}
+
+	var query struct {
+		Node struct {
+			ProjectV2 struct {
+				Fields struct {
+					Nodes []struct {
+						TypeName string `graphql:"__typename"`
+						// Common fields
+						ProjectV2Field struct {
+							ID       string
+							Name     string
+							DataType string
+						} `graphql:"... on ProjectV2Field"`
+						// Single select fields have options
+						ProjectV2SingleSelectField struct {
+							ID       string
+							Name     string
+							DataType string
+							Options  []struct {
+								ID   string
+								Name string
+							}
+						} `graphql:"... on ProjectV2SingleSelectField"`
+					}
+				} `graphql:"fields(first: 50)"`
+			} `graphql:"... on ProjectV2"`
+		} `graphql:"node(id: $projectId)"`
+	}
+
+	variables := map[string]interface{}{
+		"projectId": graphql.ID(projectID),
+	}
+
+	err := c.gql.Query("GetProjectFields", &query, variables)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get project fields: %w", err)
+	}
+
+	var fields []ProjectField
+	for _, node := range query.Node.ProjectV2.Fields.Nodes {
+		field := ProjectField{}
+
+		switch node.TypeName {
+		case "ProjectV2SingleSelectField":
+			field.ID = node.ProjectV2SingleSelectField.ID
+			field.Name = node.ProjectV2SingleSelectField.Name
+			field.DataType = node.ProjectV2SingleSelectField.DataType
+			for _, opt := range node.ProjectV2SingleSelectField.Options {
+				field.Options = append(field.Options, FieldOption{
+					ID:   opt.ID,
+					Name: opt.Name,
+				})
+			}
+		case "ProjectV2Field":
+			field.ID = node.ProjectV2Field.ID
+			field.Name = node.ProjectV2Field.Name
+			field.DataType = node.ProjectV2Field.DataType
+		default:
+			// Skip iteration/other field types for now
+			continue
+		}
+
+		fields = append(fields, field)
+	}
+
+	return fields, nil
+}
+
+// GetIssue fetches an issue by repository and number
+func (c *Client) GetIssue(owner, repo string, number int) (*Issue, error) {
+	if c.gql == nil {
+		return nil, fmt.Errorf("GraphQL client not initialized - are you authenticated with gh?")
+	}
+
+	var query struct {
+		Repository struct {
+			Issue struct {
+				ID     string
+				Number int
+				Title  string
+				Body   string
+				State  string
+				URL    string `graphql:"url"`
+				Author struct {
+					Login string
+				}
+				Assignees struct {
+					Nodes []struct {
+						Login string
+					}
+				} `graphql:"assignees(first: 10)"`
+				Labels struct {
+					Nodes []struct {
+						Name  string
+						Color string
+					}
+				} `graphql:"labels(first: 20)"`
+				Milestone struct {
+					Title string
+				}
+			} `graphql:"issue(number: $number)"`
+		} `graphql:"repository(owner: $owner, name: $repo)"`
+	}
+
+	variables := map[string]interface{}{
+		"owner":  graphql.String(owner),
+		"repo":   graphql.String(repo),
+		"number": graphql.Int(number),
+	}
+
+	err := c.gql.Query("GetIssue", &query, variables)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get issue %s/%s#%d: %w", owner, repo, number, err)
+	}
+
+	issue := &Issue{
+		ID:     query.Repository.Issue.ID,
+		Number: query.Repository.Issue.Number,
+		Title:  query.Repository.Issue.Title,
+		Body:   query.Repository.Issue.Body,
+		State:  query.Repository.Issue.State,
+		URL:    query.Repository.Issue.URL,
+		Repository: Repository{
+			Owner: owner,
+			Name:  repo,
+		},
+		Author: Actor{Login: query.Repository.Issue.Author.Login},
+	}
+
+	for _, a := range query.Repository.Issue.Assignees.Nodes {
+		issue.Assignees = append(issue.Assignees, Actor{Login: a.Login})
+	}
+
+	for _, l := range query.Repository.Issue.Labels.Nodes {
+		issue.Labels = append(issue.Labels, Label{Name: l.Name, Color: l.Color})
+	}
+
+	if query.Repository.Issue.Milestone.Title != "" {
+		issue.Milestone = &Milestone{Title: query.Repository.Issue.Milestone.Title}
+	}
+
+	return issue, nil
+}
+
+// ProjectItemsFilter allows filtering project items
+type ProjectItemsFilter struct {
+	Repository string // Filter by repository (owner/repo format)
+}
+
+// GetProjectItems fetches all items from a project with their field values
+func (c *Client) GetProjectItems(projectID string, filter *ProjectItemsFilter) ([]ProjectItem, error) {
+	if c.gql == nil {
+		return nil, fmt.Errorf("GraphQL client not initialized - are you authenticated with gh?")
+	}
+
+	var query struct {
+		Node struct {
+			ProjectV2 struct {
+				Items struct {
+					Nodes []struct {
+						ID      string
+						Content struct {
+							TypeName string `graphql:"__typename"`
+							Issue    struct {
+								ID     string
+								Number int
+								Title  string
+								State  string
+								URL    string `graphql:"url"`
+								Repository struct {
+									NameWithOwner string
+								}
+								Assignees struct {
+									Nodes []struct {
+										Login string
+									}
+								} `graphql:"assignees(first: 10)"`
+							} `graphql:"... on Issue"`
+						}
+						FieldValues struct {
+							Nodes []struct {
+								TypeName string `graphql:"__typename"`
+								// Single select field value
+								ProjectV2ItemFieldSingleSelectValue struct {
+									Name  string
+									Field struct {
+										ProjectV2SingleSelectField struct {
+											Name string
+										} `graphql:"... on ProjectV2SingleSelectField"`
+									}
+								} `graphql:"... on ProjectV2ItemFieldSingleSelectValue"`
+								// Text field value
+								ProjectV2ItemFieldTextValue struct {
+									Text  string
+									Field struct {
+										ProjectV2Field struct {
+											Name string
+										} `graphql:"... on ProjectV2Field"`
+									}
+								} `graphql:"... on ProjectV2ItemFieldTextValue"`
+							}
+						} `graphql:"fieldValues(first: 20)"`
+					}
+				} `graphql:"items(first: 100)"`
+			} `graphql:"... on ProjectV2"`
+		} `graphql:"node(id: $projectId)"`
+	}
+
+	variables := map[string]interface{}{
+		"projectId": graphql.ID(projectID),
+	}
+
+	err := c.gql.Query("GetProjectItems", &query, variables)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get project items: %w", err)
+	}
+
+	var items []ProjectItem
+	for _, node := range query.Node.ProjectV2.Items.Nodes {
+		// Skip non-issue items (like draft issues or PRs)
+		if node.Content.TypeName != "Issue" {
+			continue
+		}
+
+		// Apply repository filter if specified
+		if filter != nil && filter.Repository != "" {
+			if node.Content.Issue.Repository.NameWithOwner != filter.Repository {
+				continue
+			}
+		}
+
+		item := ProjectItem{
+			ID: node.ID,
+			Issue: &Issue{
+				ID:     node.Content.Issue.ID,
+				Number: node.Content.Issue.Number,
+				Title:  node.Content.Issue.Title,
+				State:  node.Content.Issue.State,
+				URL:    node.Content.Issue.URL,
+			},
+		}
+
+		// Parse repository
+		if node.Content.Issue.Repository.NameWithOwner != "" {
+			parts := splitRepoName(node.Content.Issue.Repository.NameWithOwner)
+			if len(parts) == 2 {
+				item.Issue.Repository = Repository{
+					Owner: parts[0],
+					Name:  parts[1],
+				}
+			}
+		}
+
+		// Parse assignees
+		for _, a := range node.Content.Issue.Assignees.Nodes {
+			item.Issue.Assignees = append(item.Issue.Assignees, Actor{Login: a.Login})
+		}
+
+		// Parse field values
+		for _, fv := range node.FieldValues.Nodes {
+			switch fv.TypeName {
+			case "ProjectV2ItemFieldSingleSelectValue":
+				if fv.ProjectV2ItemFieldSingleSelectValue.Name != "" {
+					item.FieldValues = append(item.FieldValues, FieldValue{
+						Field: fv.ProjectV2ItemFieldSingleSelectValue.Field.ProjectV2SingleSelectField.Name,
+						Value: fv.ProjectV2ItemFieldSingleSelectValue.Name,
+					})
+				}
+			case "ProjectV2ItemFieldTextValue":
+				if fv.ProjectV2ItemFieldTextValue.Text != "" {
+					item.FieldValues = append(item.FieldValues, FieldValue{
+						Field: fv.ProjectV2ItemFieldTextValue.Field.ProjectV2Field.Name,
+						Value: fv.ProjectV2ItemFieldTextValue.Text,
+					})
+				}
+			}
+		}
+
+		items = append(items, item)
+	}
+
+	return items, nil
+}
+
+// splitRepoName splits "owner/repo" into parts
+func splitRepoName(nameWithOwner string) []string {
+	for i, c := range nameWithOwner {
+		if c == '/' {
+			return []string{nameWithOwner[:i], nameWithOwner[i+1:]}
+		}
+	}
+	return nil
+}

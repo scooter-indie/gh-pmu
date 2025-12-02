@@ -1,9 +1,9 @@
 project:
-    name: gh_ext
+    name: gh-pm-unified
     number: 11
     owner: scooter-indie
 repositories:
-    - scooter-indie/gh_ext
+    - scooter-indie/gh-pm-unified
 defaults:
     priority: p2
     status: backlog
