@@ -9,7 +9,9 @@ before:
 builds:
   - id: gh-pmu
     main: .
-    binary: gh-pmu
+    # gh extension expects binary named {os}-{arch} or {os}-{arch}.exe
+    binary: "{{ .Os }}-{{ .Arch }}"
+    no_unique_dist_dir: true
     env:
       - CGO_ENABLED=0
     goos:
@@ -23,17 +25,12 @@ builds:
       - -s -w
       - -X github.com/scooter-indie/gh-pmu/cmd.version={{.Version}}
 
+# gh extension install expects raw binaries, not archives
 archives:
   - id: gh-pmu
-    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
-    # gh extension expects binary at root of archive, not in a folder
-    wrap_in_directory: false
     formats:
-      - tar.gz
-    format_overrides:
-      - goos: windows
-        formats:
-          - zip
+      - binary
+    name_template: "{{ .Binary }}"
 
 checksum:
   name_template: "checksums.txt"
