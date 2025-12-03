@@ -718,24 +718,24 @@ This epic is entirely blocked because it depends on the ability to create projec
 **So that** I can complete setup with minimal manual input and enjoy a polished experience
 
 **Acceptance Criteria:**
-- [ ] Auto-detect current repository from git remote (already implemented)
-- [ ] Query GitHub API for projects associated with the repository owner
-- [ ] Present a numbered list of available projects for selection
-- [ ] Allow user to select project by number instead of typing project number manually
-- [ ] Show project title and number in the selection list
-- [ ] Fall back to manual entry if no projects found or user chooses "other"
-- [ ] Support both user and organization projects
-- [ ] Handle repositories with multiple associated projects gracefully
+- [x] Auto-detect current repository from git remote (already implemented)
+- [x] Query GitHub API for projects associated with the repository owner
+- [x] Present a numbered list of available projects for selection
+- [x] Allow user to select project by number instead of typing project number manually
+- [x] Show project title and number in the selection list
+- [x] Fall back to manual entry if no projects found or user chooses "other"
+- [x] Support both user and organization projects
+- [x] Handle repositories with multiple associated projects gracefully
 
 **UX Requirements:**
-- [ ] Show a spinner/progress indicator while fetching data from GitHub API
-- [ ] Use color coding: cyan for prompts, green for success, yellow for warnings
-- [ ] Display a styled header/banner for the init wizard
-- [ ] Group related information in visual boxes or sections
-- [ ] Show checkmarks (✓) for completed steps
-- [ ] Provide clear step numbers (Step 1 of 3, etc.)
-- [ ] Gracefully handle terminal width constraints
-- [ ] Final summary displayed in a formatted box with all configured values
+- [x] Show a spinner/progress indicator while fetching data from GitHub API
+- [x] Use color coding: cyan for prompts, green for success, yellow for warnings
+- [x] Display a styled header/banner for the init wizard
+- [x] Group related information in visual boxes or sections
+- [x] Show checkmarks (✓) for completed steps
+- [x] Provide clear step numbers (Step 1 of 3, etc.)
+- [x] Gracefully handle terminal width constraints
+- [x] Final summary displayed in a formatted box with all configured values
 
 **Example Output:**
 ```
