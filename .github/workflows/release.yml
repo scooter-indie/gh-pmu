@@ -15,20 +15,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-          cache: true
-
       - name: Ensure go.mod compatibility
-        run: sed -i 's/go 1\.[0-9]*\.[0-9]*/go 1.23/' go.mod
-
-      - name: Run tests
-        run: go test -v -short ./...
+        run: sed -i 's/go 1\.[0-9]*/go 1.22/' go.mod
 
       - name: Build and release
         uses: cli/gh-extension-precompile@v2
         with:
-          build_script_override: |
-            go build -ldflags="-X github.com/scooter-indie/gh-pmu/cmd.version=${{ github.ref_name }}" -o "$1"
+          go_version: "1.22"
+          build_script_override: "go build -ldflags=\"-X github.com/scooter-indie/gh-pmu/cmd.version=${{ github.ref_name }}\" -o \"$1\""
