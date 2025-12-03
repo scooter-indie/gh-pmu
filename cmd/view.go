@@ -127,19 +127,19 @@ func runView(cmd *cobra.Command, args []string, opts *viewOptions) error {
 
 // ViewJSONOutput represents the JSON output for view command
 type ViewJSONOutput struct {
-	Number       int                `json:"number"`
-	Title        string             `json:"title"`
-	State        string             `json:"state"`
-	Body         string             `json:"body"`
-	URL          string             `json:"url"`
-	Author       string             `json:"author"`
-	Assignees    []string           `json:"assignees"`
-	Labels       []string           `json:"labels"`
-	Milestone    string             `json:"milestone,omitempty"`
-	FieldValues  map[string]string  `json:"fieldValues"`
-	SubIssues    []SubIssueJSON     `json:"subIssues,omitempty"`
-	SubProgress  *SubProgressJSON   `json:"subProgress,omitempty"`
-	ParentIssue  *ParentIssueJSON   `json:"parentIssue,omitempty"`
+	Number      int               `json:"number"`
+	Title       string            `json:"title"`
+	State       string            `json:"state"`
+	Body        string            `json:"body"`
+	URL         string            `json:"url"`
+	Author      string            `json:"author"`
+	Assignees   []string          `json:"assignees"`
+	Labels      []string          `json:"labels"`
+	Milestone   string            `json:"milestone,omitempty"`
+	FieldValues map[string]string `json:"fieldValues"`
+	SubIssues   []SubIssueJSON    `json:"subIssues,omitempty"`
+	SubProgress *SubProgressJSON  `json:"subProgress,omitempty"`
+	ParentIssue *ParentIssueJSON  `json:"parentIssue,omitempty"`
 }
 
 // SubProgressJSON represents sub-issue progress in JSON output

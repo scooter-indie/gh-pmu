@@ -268,11 +268,11 @@ func (c *Client) GetProjectItems(projectID string, filter *ProjectItemsFilter) (
 						Content struct {
 							TypeName string `graphql:"__typename"`
 							Issue    struct {
-								ID     string
-								Number int
-								Title  string
-								State  string
-								URL    string `graphql:"url"`
+								ID         string
+								Number     int
+								Title      string
+								State      string
+								URL        string `graphql:"url"`
 								Repository struct {
 									NameWithOwner string
 								}
@@ -409,11 +409,11 @@ func (c *Client) GetSubIssues(owner, repo string, number int) ([]SubIssue, error
 			Issue struct {
 				SubIssues struct {
 					Nodes []struct {
-						ID     string
-						Number int
-						Title  string
-						State  string
-						URL    string `graphql:"url"`
+						ID         string
+						Number     int
+						Title      string
+						State      string
+						URL        string `graphql:"url"`
 						Repository struct {
 							Name  string
 							Owner struct {

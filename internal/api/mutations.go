@@ -80,12 +80,12 @@ func (c *Client) CreateIssue(owner, repo, title, body string, labels []string) (
 
 // CreateIssueInput represents the input for creating an issue
 type CreateIssueInput struct {
-	RepositoryID graphql.ID      `json:"repositoryId"`
-	Title        graphql.String  `json:"title"`
-	Body         graphql.String  `json:"body,omitempty"`
-	LabelIDs     *[]graphql.ID   `json:"labelIds,omitempty"`
-	AssigneeIDs  *[]graphql.ID   `json:"assigneeIds,omitempty"`
-	MilestoneID  *graphql.ID     `json:"milestoneId,omitempty"`
+	RepositoryID graphql.ID     `json:"repositoryId"`
+	Title        graphql.String `json:"title"`
+	Body         graphql.String `json:"body,omitempty"`
+	LabelIDs     *[]graphql.ID  `json:"labelIds,omitempty"`
+	AssigneeIDs  *[]graphql.ID  `json:"assigneeIds,omitempty"`
+	MilestoneID  *graphql.ID    `json:"milestoneId,omitempty"`
 }
 
 // AddIssueToProject adds an issue to a GitHub Project V2
@@ -261,19 +261,19 @@ func (c *Client) setNumberField(projectID, itemID, fieldID, value string) error 
 
 // UpdateProjectV2ItemFieldValueInput represents the input for updating a field value
 type UpdateProjectV2ItemFieldValueInput struct {
-	ProjectID graphql.ID           `json:"projectId"`
-	ItemID    graphql.ID           `json:"itemId"`
-	FieldID   graphql.ID           `json:"fieldId"`
-	Value     ProjectV2FieldValue  `json:"value"`
+	ProjectID graphql.ID          `json:"projectId"`
+	ItemID    graphql.ID          `json:"itemId"`
+	FieldID   graphql.ID          `json:"fieldId"`
+	Value     ProjectV2FieldValue `json:"value"`
 }
 
 // ProjectV2FieldValue represents a field value for a project item
 type ProjectV2FieldValue struct {
-	Text                 graphql.String  `json:"text,omitempty"`
-	Number               graphql.Float   `json:"number,omitempty"`
-	Date                 graphql.String  `json:"date,omitempty"`
-	SingleSelectOptionId graphql.String  `json:"singleSelectOptionId,omitempty"`
-	IterationId          graphql.String  `json:"iterationId,omitempty"`
+	Text                 graphql.String `json:"text,omitempty"`
+	Number               graphql.Float  `json:"number,omitempty"`
+	Date                 graphql.String `json:"date,omitempty"`
+	SingleSelectOptionId graphql.String `json:"singleSelectOptionId,omitempty"`
+	IterationId          graphql.String `json:"iterationId,omitempty"`
 }
 
 // Helper methods
@@ -416,4 +416,3 @@ func (c *Client) getLabelID(owner, repo, labelName string) (string, error) {
 
 	return query.Repository.Label.ID, nil
 }
-

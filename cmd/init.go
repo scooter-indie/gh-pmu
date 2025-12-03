@@ -218,10 +218,10 @@ type InitConfig struct {
 
 // ConfigFile represents the .gh-pmu.yml file structure.
 type ConfigFile struct {
-	Project      ProjectConfig            `yaml:"project"`
-	Repositories []string                 `yaml:"repositories"`
-	Defaults     DefaultsConfig           `yaml:"defaults"`
-	Fields       map[string]FieldMapping  `yaml:"fields"`
+	Project      ProjectConfig           `yaml:"project"`
+	Repositories []string                `yaml:"repositories"`
+	Defaults     DefaultsConfig          `yaml:"defaults"`
+	Fields       map[string]FieldMapping `yaml:"fields"`
 }
 
 // ProjectConfig represents the project section of config.

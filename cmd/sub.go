@@ -394,9 +394,9 @@ func runSubList(cmd *cobra.Command, args []string, opts *subListOptions) error {
 
 // SubListJSONOutput represents the JSON output for sub list command
 type SubListJSONOutput struct {
-	Parent    SubListParent    `json:"parent"`
-	SubIssues []SubListItem    `json:"subIssues"`
-	Summary   SubListSummary   `json:"summary"`
+	Parent    SubListParent  `json:"parent"`
+	SubIssues []SubListItem  `json:"subIssues"`
+	Summary   SubListSummary `json:"summary"`
 }
 
 type SubListParent struct {
@@ -413,9 +413,9 @@ type SubListItem struct {
 }
 
 type SubListSummary struct {
-	Total    int `json:"total"`
-	Open     int `json:"open"`
-	Closed   int `json:"closed"`
+	Total  int `json:"total"`
+	Open   int `json:"open"`
+	Closed int `json:"closed"`
 }
 
 func outputSubListJSON(subIssues []api.SubIssue, parent *api.Issue) error {

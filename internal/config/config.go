@@ -48,8 +48,8 @@ type Triage struct {
 
 // TriageApply contains fields to apply during triage
 type TriageApply struct {
-	Labels   []string          `yaml:"labels,omitempty"`
-	Fields   map[string]string `yaml:"fields,omitempty"`
+	Labels []string          `yaml:"labels,omitempty"`
+	Fields map[string]string `yaml:"fields,omitempty"`
 }
 
 // TriageInteractive contains interactive prompts for triage

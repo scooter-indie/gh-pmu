@@ -423,10 +423,10 @@ func outputTriageTable(cmd *cobra.Command, issues []api.Issue) error {
 }
 
 type triageJSONOutput struct {
-	Status     string             `json:"status"`
-	ConfigName string             `json:"configName"`
-	Count      int                `json:"count"`
-	Issues     []triageJSONIssue  `json:"issues"`
+	Status     string            `json:"status"`
+	ConfigName string            `json:"configName"`
+	Count      int               `json:"count"`
+	Issues     []triageJSONIssue `json:"issues"`
 }
 
 type triageJSONIssue struct {
