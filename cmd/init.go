@@ -147,6 +147,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 
 	// Create config
 	cfg := &InitConfig{
+		ProjectName:   project.Title,
 		ProjectOwner:  owner,
 		ProjectNumber: projectNumber,
 		Repositories:  []string{repo},
@@ -211,6 +212,7 @@ func splitRepository(repo string) (owner, name string) {
 
 // InitConfig holds the configuration gathered during init.
 type InitConfig struct {
+	ProjectName   string
 	ProjectOwner  string
 	ProjectNumber int
 	Repositories  []string
@@ -222,6 +224,7 @@ type ConfigFile struct {
 	Repositories []string                `yaml:"repositories"`
 	Defaults     DefaultsConfig          `yaml:"defaults"`
 	Fields       map[string]FieldMapping `yaml:"fields"`
+	Triage       map[string]TriageRule   `yaml:"triage,omitempty"`
 }
 
 // ProjectConfig represents the project section of config.
@@ -289,12 +292,26 @@ type MetadataFieldOption struct {
 	ID   string `yaml:"id"`
 }
 
+// TriageRule represents a single triage rule configuration.
+type TriageRule struct {
+	Query       string                 `yaml:"query"`
+	Apply       TriageApply            `yaml:"apply"`
+	Interactive map[string]bool        `yaml:"interactive,omitempty"`
+}
+
+// TriageApply represents what to apply when a triage rule matches.
+type TriageApply struct {
+	Labels []string          `yaml:"labels,omitempty"`
+	Fields map[string]string `yaml:"fields,omitempty"`
+}
+
 // ConfigFileWithMetadata extends ConfigFile with metadata section.
 type ConfigFileWithMetadata struct {
 	Project      ProjectConfig           `yaml:"project"`
 	Repositories []string                `yaml:"repositories"`
 	Defaults     DefaultsConfig          `yaml:"defaults"`
 	Fields       map[string]FieldMapping `yaml:"fields"`
+	Triage       map[string]TriageRule   `yaml:"triage,omitempty"`
 	Metadata     MetadataSection         `yaml:"metadata"`
 }
 
@@ -313,6 +330,7 @@ func validateProject(client ProjectValidator, owner string, number int) error {
 func writeConfig(dir string, cfg *InitConfig) error {
 	configFile := &ConfigFile{
 		Project: ProjectConfig{
+			Name:   cfg.ProjectName,
 			Owner:  cfg.ProjectOwner,
 			Number: cfg.ProjectNumber,
 		},
@@ -320,6 +338,7 @@ func writeConfig(dir string, cfg *InitConfig) error {
 		Defaults: DefaultsConfig{
 			Priority: "p2",
 			Status:   "backlog",
+			Labels:   []string{"pm-tracked"},
 		},
 		Fields: map[string]FieldMapping{
 			"priority": {
@@ -338,6 +357,28 @@ func writeConfig(dir string, cfg *InitConfig) error {
 					"in_progress": "In progress",
 					"in_review":   "In review",
 					"done":        "Done",
+				},
+			},
+		},
+		Triage: map[string]TriageRule{
+			"estimate": {
+				Query: "is:issue is:open -has:estimate",
+				Apply: TriageApply{},
+				Interactive: map[string]bool{
+					"estimate": true,
+				},
+			},
+			"tracked": {
+				Query: "is:issue is:open -label:pm-tracked",
+				Apply: TriageApply{
+					Labels: []string{"pm-tracked"},
+					Fields: map[string]string{
+						"priority": "p1",
+						"status":   "backlog",
+					},
+				},
+				Interactive: map[string]bool{
+					"status": true,
 				},
 			},
 		},
@@ -377,6 +418,7 @@ func writeConfigWithMetadata(dir string, cfg *InitConfig, metadata *ProjectMetad
 
 	configFile := &ConfigFileWithMetadata{
 		Project: ProjectConfig{
+			Name:   cfg.ProjectName,
 			Owner:  cfg.ProjectOwner,
 			Number: cfg.ProjectNumber,
 		},
@@ -384,6 +426,7 @@ func writeConfigWithMetadata(dir string, cfg *InitConfig, metadata *ProjectMetad
 		Defaults: DefaultsConfig{
 			Priority: "p2",
 			Status:   "backlog",
+			Labels:   []string{"pm-tracked"},
 		},
 		Fields: map[string]FieldMapping{
 			"priority": {
@@ -402,6 +445,28 @@ func writeConfigWithMetadata(dir string, cfg *InitConfig, metadata *ProjectMetad
 					"in_progress": "In progress",
 					"in_review":   "In review",
 					"done":        "Done",
+				},
+			},
+		},
+		Triage: map[string]TriageRule{
+			"estimate": {
+				Query: "is:issue is:open -has:estimate",
+				Apply: TriageApply{},
+				Interactive: map[string]bool{
+					"estimate": true,
+				},
+			},
+			"tracked": {
+				Query: "is:issue is:open -label:pm-tracked",
+				Apply: TriageApply{
+					Labels: []string{"pm-tracked"},
+					Fields: map[string]string{
+						"priority": "p1",
+						"status":   "backlog",
+					},
+				},
+				Interactive: map[string]bool{
+					"status": true,
 				},
 			},
 		},

@@ -138,6 +138,49 @@ func TestWriteConfig_WithDefaults(t *testing.T) {
 	}
 }
 
+func TestWriteConfig_IncludesTriageAndLabels(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	cfg := &InitConfig{
+		ProjectName:   "Test Project",
+		ProjectOwner:  "owner",
+		ProjectNumber: 1,
+		Repositories:  []string{"owner/repo"},
+	}
+
+	err := writeConfig(tmpDir, cfg)
+	if err != nil {
+		t.Fatalf("writeConfig failed: %v", err)
+	}
+
+	content, _ := readFile(tmpDir + "/.gh-pmu.yml")
+
+	// Should have project name
+	if !bytes.Contains(content, []byte("name: Test Project")) {
+		t.Error("Config should have project name")
+	}
+
+	// Should have default labels
+	if !bytes.Contains(content, []byte("pm-tracked")) {
+		t.Error("Config should have pm-tracked label in defaults")
+	}
+
+	// Should have triage section
+	if !bytes.Contains(content, []byte("triage:")) {
+		t.Error("Config should have triage section")
+	}
+
+	// Should have estimate triage rule
+	if !bytes.Contains(content, []byte("estimate:")) {
+		t.Error("Config should have estimate triage rule")
+	}
+
+	// Should have tracked triage rule
+	if !bytes.Contains(content, []byte("tracked:")) {
+		t.Error("Config should have tracked triage rule")
+	}
+}
+
 // Helper to read file for tests
 func readFile(path string) ([]byte, error) {
 	return os.ReadFile(path)
