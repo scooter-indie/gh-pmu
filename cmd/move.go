@@ -202,7 +202,7 @@ func runMove(cmd *cobra.Command, args []string, opts *moveOptions) error {
 		if !opts.yes {
 			fmt.Printf("\nProceed with updating %d issues? [y/N]: ", len(issuesToUpdate))
 			var response string
-			fmt.Scanln(&response)
+			_, _ = fmt.Scanln(&response)
 			response = strings.ToLower(strings.TrimSpace(response))
 			if response != "y" && response != "yes" {
 				fmt.Println("Aborted.")

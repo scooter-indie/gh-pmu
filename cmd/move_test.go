@@ -89,7 +89,7 @@ func TestMoveCommand_HasRecursiveFlag(t *testing.T) {
 
 	flag := moveCmd.Flags().Lookup("recursive")
 	if flag == nil {
-		t.Error("Expected --recursive flag to exist")
+		t.Fatal("Expected --recursive flag to exist")
 	}
 
 	// Verify short flag
@@ -107,7 +107,7 @@ func TestMoveCommand_HasDepthFlag(t *testing.T) {
 
 	flag := moveCmd.Flags().Lookup("depth")
 	if flag == nil {
-		t.Error("Expected --depth flag to exist")
+		t.Fatal("Expected --depth flag to exist")
 	}
 
 	// Verify default value

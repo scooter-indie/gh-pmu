@@ -116,7 +116,7 @@ func runTriage(cmd *cobra.Command, args []string, opts *triageOptions) error {
 			return outputTriageJSON(cmd, matchingIssues, "dry-run", configName)
 		}
 		cmd.Printf("Would process %d issue(s) with triage config %q:\n\n", len(matchingIssues), configName)
-		outputTriageTable(cmd, matchingIssues)
+		_ = outputTriageTable(cmd, matchingIssues)
 		cmd.Println()
 		describeTriageActions(cmd, cfg, &triageCfg)
 		return nil

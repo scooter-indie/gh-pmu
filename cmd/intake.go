@@ -128,7 +128,7 @@ func runIntake(cmd *cobra.Command, opts *intakeOptions) error {
 		} else {
 			encoder := json.NewEncoder(os.Stdout)
 			encoder.SetIndent("", "  ")
-			encoder.Encode(map[string]interface{}{"issues": []interface{}{}, "count": 0})
+			_ = encoder.Encode(map[string]interface{}{"issues": []interface{}{}, "count": 0})
 		}
 		return nil
 	}

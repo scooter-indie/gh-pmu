@@ -193,8 +193,8 @@ Examples:
 	cmd.Flags().BoolVar(&opts.inheritAssign, "inherit-assignees", false, "Inherit assignees from parent (same repo only)")
 	cmd.Flags().BoolVar(&opts.inheritMilestone, "inherit-milestone", true, "Inherit milestone from parent (same repo only)")
 
-	cmd.MarkFlagRequired("parent")
-	cmd.MarkFlagRequired("title")
+	_ = cmd.MarkFlagRequired("parent")
+	_ = cmd.MarkFlagRequired("title")
 
 	return cmd
 }

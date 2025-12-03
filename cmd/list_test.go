@@ -72,7 +72,7 @@ func TestListCommand_HasSubIssuesFlag(t *testing.T) {
 
 	flag := listCmd.Flags().Lookup("has-sub-issues")
 	if flag == nil {
-		t.Error("Expected --has-sub-issues flag to exist")
+		t.Fatal("Expected --has-sub-issues flag to exist")
 	}
 
 	// Verify it's a boolean flag

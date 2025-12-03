@@ -7,7 +7,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"text/tabwriter"
 
 	"github.com/scooter-indie/gh-pmu/internal/api"
 	"github.com/scooter-indie/gh-pmu/internal/config"
@@ -245,20 +244,4 @@ func outputSplitJSONCreated(cmd *cobra.Command, parent *api.Issue, created []api
 	encoder := json.NewEncoder(os.Stdout)
 	encoder.SetIndent("", "  ")
 	return encoder.Encode(output)
-}
-
-// outputSplitTable is available for future use
-func outputSplitTable(cmd *cobra.Command, issues []api.Issue) error {
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "NUMBER\tTITLE\tURL")
-
-	for _, issue := range issues {
-		title := issue.Title
-		if len(title) > 50 {
-			title = title[:47] + "..."
-		}
-		fmt.Fprintf(w, "#%d\t%s\t%s\n", issue.Number, title, issue.URL)
-	}
-
-	return w.Flush()
 }
