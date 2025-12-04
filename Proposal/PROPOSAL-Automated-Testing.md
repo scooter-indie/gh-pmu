@@ -1,6 +1,6 @@
 # Proposal: Automated Non-Destructive Integration Tests & UAT
 
-**Version:** 1.2
+**Version:** 1.3
 **Date:** 2025-12-04
 **Author:** PRD-Analyst, API-Integration-Specialist
 **Status:** Active
@@ -387,12 +387,17 @@ func RunCommandWithConfig(t *testing.T, cfg *config.Config, args ...string) (str
 name: Integration Tests
 
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
-  schedule:
-    - cron: '0 6 * * *'  # Daily at 6 AM UTC
+  workflow_dispatch:  # Manual trigger only
+    inputs:
+      test_type:
+        description: 'Type of tests to run'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - integration
+          - uat
 
 jobs:
   integration:
@@ -404,9 +409,10 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.21'
+          go-version: '1.23'
 
       - name: Run Integration Tests
+        if: ${{ inputs.test_type == 'all' || inputs.test_type == 'integration' }}
         env:
           GH_TOKEN: ${{ secrets.TEST_GH_TOKEN }}
           TEST_PROJECT_ID: ${{ vars.TEST_PROJECT_ID }}
@@ -416,6 +422,7 @@ jobs:
           go test -v -tags=integration ./...
 
       - name: Run UAT Tests
+        if: ${{ inputs.test_type == 'all' || inputs.test_type == 'uat' }}
         env:
           GH_TOKEN: ${{ secrets.TEST_GH_TOKEN }}
           TEST_PROJECT_ID: ${{ vars.TEST_PROJECT_ID }}
@@ -430,6 +437,14 @@ jobs:
           GH_TOKEN: ${{ secrets.TEST_GH_TOKEN }}
         run: |
           go run ./cmd/testcleanup/main.go
+```
+
+**Running Integration Tests:**
+```bash
+# Via GitHub CLI
+gh workflow run integration-tests.yml -f test_type=all
+
+# Or from GitHub Actions UI: Actions → Integration Tests → Run workflow
 ```
 
 ### Required Secrets/Variables
@@ -1020,4 +1035,5 @@ These `run*` functions involve API calls and require integration testing infrast
 | 1.0 | 2025-12-03 | PRD-Analyst | Initial proposal |
 | 1.1 | 2025-12-03 | API-Integration-Specialist | Added Appendix C: runCreate integration test requirements |
 | 1.2 | 2025-12-04 | API-Integration-Specialist | Updated executive summary with current coverage (63.6%), added Appendix D with functions below 80% coverage based on v0.2.10 release |
+| 1.3 | 2025-12-04 | API-Integration-Specialist | Changed CI workflow to on-demand only (workflow_dispatch), removed cron schedule |
 
