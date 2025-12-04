@@ -21,6 +21,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated README.md with current feature set and project status
 - Updated PRD to reflect removed epics
 
+## [0.2.10] - 2025-12-04
+
+### Added - Test Coverage Sprint
+- **Test coverage increased from ~15% to 63.6%**
+- Comprehensive tests for `cmd/intake.go` output functions (100% coverage)
+- Comprehensive tests for `cmd/split.go` output functions (100% coverage)
+- Comprehensive tests for `cmd/init.go` helper functions (75-100% coverage)
+- Comprehensive tests for `internal/ui/ui.go` spinner methods (96.9% coverage)
+- Automated coverage report generation on releases (`coverage/README.md`)
+- Integration testing proposal and backlog (`Proposal/PROPOSAL-Automated-Testing.md`)
+- Integration testing backlog with 23 stories, 90 story points
+
+### Changed
+- Fixed golangci-lint errcheck warnings for `os.Chdir` in deferred calls
+- Go version requirement updated to 1.22+
+
+### Coverage by Package (v0.2.10)
+| Package | Coverage |
+|---------|----------|
+| `internal/api` | 96.6% |
+| `internal/config` | 97.0% |
+| `internal/ui` | 96.9% |
+| `cmd` | 51.2% |
+| **Total** | **63.6%** |
+
 ## [0.3.0] - 2025-12-02
 
 ### Added - Sprint 3: Batch Operations
@@ -136,8 +161,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 | Sprint 2 | 24 | view, create, move, sub-issues |
 | Sprint 3 | 21 | intake, triage, split |
 | Sprint 4 | - | Epic 2 removed (redundant) |
+| Sprint 5-6 | 13 | Test coverage (63.6%) |
 
-**Total Completed:** 73 story points (Epic 1 complete)
+**Total Completed:** 86 story points (Epic 1 complete, test coverage 63.6%)
 
 ## API Limitations Discovered
 
@@ -148,7 +174,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 These limitations led to removing Epic 2 (Project Templates) from scope.
 
-[Unreleased]: https://github.com/scooter-indie/gh-pmu/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/scooter-indie/gh-pmu/compare/v0.2.10...HEAD
+[0.2.10]: https://github.com/scooter-indie/gh-pmu/compare/v0.3.0...v0.2.10
 [0.3.0]: https://github.com/scooter-indie/gh-pmu/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/scooter-indie/gh-pmu/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/scooter-indie/gh-pmu/compare/v0.0.1...v0.1.0

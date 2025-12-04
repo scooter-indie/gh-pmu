@@ -168,7 +168,7 @@ gh pmu split 42 "Task 1" "Task 2" "Task 3"
 
 ### Prerequisites
 
-- Go 1.21+
+- Go 1.22+
 - GitHub CLI (`gh`) with `project` scope
 
 ### Building
@@ -180,14 +180,44 @@ make build
 ### Testing
 
 ```bash
+# Run unit tests
 make test
+
+# Run with coverage
+go test -cover ./...
 ```
+
+### Test Coverage
+
+Current coverage (v0.2.10): **63.6%**
+
+| Package | Coverage |
+|---------|----------|
+| `internal/api` | 96.6% |
+| `internal/config` | 97.0% |
+| `internal/ui` | 96.9% |
+| `cmd` | 51.2% |
+
+See [coverage/README.md](coverage/README.md) for detailed per-function coverage.
 
 ### Integration Tests
 
+Integration tests run against real GitHub API with test fixtures:
+
 ```bash
-# Requires authenticated gh CLI
-go test -tags=integration ./internal/api/...
+# Set environment variables
+export TEST_PROJECT_OWNER="scooter-indie"
+export TEST_PROJECT_NUMBER="99"
+export TEST_REPO_OWNER="scooter-indie"
+export TEST_REPO_NAME="gh-pmu-test"
+
+# Run integration tests
+go test -v -tags=integration ./...
+```
+
+Or trigger via GitHub Actions:
+```bash
+gh workflow run integration-tests.yml -f test_type=all
 ```
 
 ## Project Status
