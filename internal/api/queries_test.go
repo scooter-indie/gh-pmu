@@ -1438,3 +1438,390 @@ func TestGetRepositoryIssues_Success(t *testing.T) {
 		t.Errorf("Expected repository owner 'owner', got '%s'", issues[0].Repository.Owner)
 	}
 }
+
+// ============================================================================
+// GetProjectItems Pagination Tests
+// ============================================================================
+
+func TestGetProjectItems_Pagination_MultiplePages(t *testing.T) {
+	// Track which page we're on
+	callCount := 0
+
+	mock := &queryMockClient{
+		queryFunc: func(name string, query interface{}, variables map[string]interface{}) error {
+			if name == "GetProjectItems" {
+				callCount++
+				v := reflect.ValueOf(query).Elem()
+				node := v.FieldByName("Node")
+				projectV2 := node.FieldByName("ProjectV2")
+				items := projectV2.FieldByName("Items")
+				nodes := items.FieldByName("Nodes")
+				pageInfoField := items.FieldByName("PageInfo")
+
+				nodeType := nodes.Type().Elem()
+
+				if callCount == 1 {
+					// First page - return items 1-2 with hasNextPage=true
+					newNodes := reflect.MakeSlice(nodes.Type(), 2, 2)
+
+					node1 := reflect.New(nodeType).Elem()
+					node1.FieldByName("ID").SetString("item-1")
+					content1 := node1.FieldByName("Content")
+					content1.FieldByName("TypeName").SetString("Issue")
+					issue1 := content1.FieldByName("Issue")
+					issue1.FieldByName("ID").SetString("issue-1")
+					issue1.FieldByName("Number").SetInt(1)
+					issue1.FieldByName("Title").SetString("Issue 1")
+					issue1.FieldByName("State").SetString("OPEN")
+					repo1 := issue1.FieldByName("Repository")
+					repo1.FieldByName("NameWithOwner").SetString("owner/repo")
+					newNodes.Index(0).Set(node1)
+
+					node2 := reflect.New(nodeType).Elem()
+					node2.FieldByName("ID").SetString("item-2")
+					content2 := node2.FieldByName("Content")
+					content2.FieldByName("TypeName").SetString("Issue")
+					issue2 := content2.FieldByName("Issue")
+					issue2.FieldByName("ID").SetString("issue-2")
+					issue2.FieldByName("Number").SetInt(2)
+					issue2.FieldByName("Title").SetString("Issue 2")
+					issue2.FieldByName("State").SetString("OPEN")
+					repo2 := issue2.FieldByName("Repository")
+					repo2.FieldByName("NameWithOwner").SetString("owner/repo")
+					newNodes.Index(1).Set(node2)
+
+					nodes.Set(newNodes)
+
+					// Set pagination info - more pages available
+					pageInfoField.FieldByName("HasNextPage").SetBool(true)
+					pageInfoField.FieldByName("EndCursor").SetString("cursor-page-1")
+				} else if callCount == 2 {
+					// Second page - return item 3 with hasNextPage=false
+					newNodes := reflect.MakeSlice(nodes.Type(), 1, 1)
+
+					node3 := reflect.New(nodeType).Elem()
+					node3.FieldByName("ID").SetString("item-3")
+					content3 := node3.FieldByName("Content")
+					content3.FieldByName("TypeName").SetString("Issue")
+					issue3 := content3.FieldByName("Issue")
+					issue3.FieldByName("ID").SetString("issue-3")
+					issue3.FieldByName("Number").SetInt(3)
+					issue3.FieldByName("Title").SetString("Issue 3")
+					issue3.FieldByName("State").SetString("OPEN")
+					repo3 := issue3.FieldByName("Repository")
+					repo3.FieldByName("NameWithOwner").SetString("owner/repo")
+					newNodes.Index(0).Set(node3)
+
+					nodes.Set(newNodes)
+
+					// Set pagination info - no more pages
+					pageInfoField.FieldByName("HasNextPage").SetBool(false)
+					pageInfoField.FieldByName("EndCursor").SetString("")
+				}
+			}
+			return nil
+		},
+	}
+
+	client := NewClientWithGraphQL(mock)
+	items, err := client.GetProjectItems("proj-id", nil)
+
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	if callCount != 2 {
+		t.Errorf("Expected 2 API calls for pagination, got %d", callCount)
+	}
+	if len(items) != 3 {
+		t.Fatalf("Expected 3 items from 2 pages, got %d", len(items))
+	}
+	if items[0].Issue.Number != 1 {
+		t.Errorf("Expected first issue number 1, got %d", items[0].Issue.Number)
+	}
+	if items[2].Issue.Number != 3 {
+		t.Errorf("Expected third issue number 3, got %d", items[2].Issue.Number)
+	}
+}
+
+func TestGetProjectItems_Pagination_SinglePage(t *testing.T) {
+	callCount := 0
+
+	mock := &queryMockClient{
+		queryFunc: func(name string, query interface{}, variables map[string]interface{}) error {
+			if name == "GetProjectItems" {
+				callCount++
+				v := reflect.ValueOf(query).Elem()
+				node := v.FieldByName("Node")
+				projectV2 := node.FieldByName("ProjectV2")
+				items := projectV2.FieldByName("Items")
+				nodes := items.FieldByName("Nodes")
+				pageInfoField := items.FieldByName("PageInfo")
+
+				nodeType := nodes.Type().Elem()
+				newNodes := reflect.MakeSlice(nodes.Type(), 1, 1)
+
+				node1 := reflect.New(nodeType).Elem()
+				node1.FieldByName("ID").SetString("item-1")
+				content1 := node1.FieldByName("Content")
+				content1.FieldByName("TypeName").SetString("Issue")
+				issue1 := content1.FieldByName("Issue")
+				issue1.FieldByName("ID").SetString("issue-1")
+				issue1.FieldByName("Number").SetInt(1)
+				issue1.FieldByName("Title").SetString("Only Issue")
+				issue1.FieldByName("State").SetString("OPEN")
+				repo1 := issue1.FieldByName("Repository")
+				repo1.FieldByName("NameWithOwner").SetString("owner/repo")
+				newNodes.Index(0).Set(node1)
+
+				nodes.Set(newNodes)
+
+				// No more pages
+				pageInfoField.FieldByName("HasNextPage").SetBool(false)
+				pageInfoField.FieldByName("EndCursor").SetString("")
+			}
+			return nil
+		},
+	}
+
+	client := NewClientWithGraphQL(mock)
+	items, err := client.GetProjectItems("proj-id", nil)
+
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	if callCount != 1 {
+		t.Errorf("Expected 1 API call (single page), got %d", callCount)
+	}
+	if len(items) != 1 {
+		t.Fatalf("Expected 1 item, got %d", len(items))
+	}
+}
+
+func TestGetProjectItems_Pagination_CursorPropagation(t *testing.T) {
+	var receivedCursors []interface{}
+
+	mock := &queryMockClient{
+		queryFunc: func(name string, query interface{}, variables map[string]interface{}) error {
+			if name == "GetProjectItems" {
+				// Track the cursor value passed
+				receivedCursors = append(receivedCursors, variables["cursor"])
+
+				v := reflect.ValueOf(query).Elem()
+				node := v.FieldByName("Node")
+				projectV2 := node.FieldByName("ProjectV2")
+				items := projectV2.FieldByName("Items")
+				nodes := items.FieldByName("Nodes")
+				pageInfoField := items.FieldByName("PageInfo")
+
+				nodeType := nodes.Type().Elem()
+				newNodes := reflect.MakeSlice(nodes.Type(), 1, 1)
+
+				node1 := reflect.New(nodeType).Elem()
+				node1.FieldByName("ID").SetString("item-1")
+				content1 := node1.FieldByName("Content")
+				content1.FieldByName("TypeName").SetString("Issue")
+				issue1 := content1.FieldByName("Issue")
+				issue1.FieldByName("ID").SetString("issue-1")
+				issue1.FieldByName("Number").SetInt(1)
+				issue1.FieldByName("Title").SetString("Issue")
+				issue1.FieldByName("State").SetString("OPEN")
+				repo1 := issue1.FieldByName("Repository")
+				repo1.FieldByName("NameWithOwner").SetString("owner/repo")
+				newNodes.Index(0).Set(node1)
+
+				nodes.Set(newNodes)
+
+				// Return different cursors based on call
+				if len(receivedCursors) == 1 {
+					pageInfoField.FieldByName("HasNextPage").SetBool(true)
+					pageInfoField.FieldByName("EndCursor").SetString("expected-cursor-123")
+				} else {
+					pageInfoField.FieldByName("HasNextPage").SetBool(false)
+					pageInfoField.FieldByName("EndCursor").SetString("")
+				}
+			}
+			return nil
+		},
+	}
+
+	client := NewClientWithGraphQL(mock)
+	_, err := client.GetProjectItems("proj-id", nil)
+
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	if len(receivedCursors) != 2 {
+		t.Fatalf("Expected 2 calls, got %d", len(receivedCursors))
+	}
+
+	// First call should have nil cursor (the nil pointer type)
+	if receivedCursors[0] != nil {
+		// Check if it's a typed nil
+		rv := reflect.ValueOf(receivedCursors[0])
+		if !rv.IsNil() {
+			t.Errorf("First call should have nil cursor, got %v", receivedCursors[0])
+		}
+	}
+
+	// Second call should have the cursor from first page
+	// The cursor is passed as graphql.String which is a string type alias
+	cursorVal := reflect.ValueOf(receivedCursors[1])
+	if cursorVal.Kind() == reflect.String {
+		if cursorVal.String() != "expected-cursor-123" {
+			t.Errorf("Second call should have cursor 'expected-cursor-123', got %v", receivedCursors[1])
+		}
+	} else {
+		t.Errorf("Second call cursor should be string type, got %T: %v", receivedCursors[1], receivedCursors[1])
+	}
+}
+
+func TestGetProjectItems_Pagination_ErrorOnSecondPage(t *testing.T) {
+	callCount := 0
+
+	mock := &queryMockClient{
+		queryFunc: func(name string, query interface{}, variables map[string]interface{}) error {
+			if name == "GetProjectItems" {
+				callCount++
+
+				if callCount == 2 {
+					return errors.New("API error on second page")
+				}
+
+				v := reflect.ValueOf(query).Elem()
+				node := v.FieldByName("Node")
+				projectV2 := node.FieldByName("ProjectV2")
+				items := projectV2.FieldByName("Items")
+				nodes := items.FieldByName("Nodes")
+				pageInfoField := items.FieldByName("PageInfo")
+
+				nodeType := nodes.Type().Elem()
+				newNodes := reflect.MakeSlice(nodes.Type(), 1, 1)
+
+				node1 := reflect.New(nodeType).Elem()
+				node1.FieldByName("ID").SetString("item-1")
+				content1 := node1.FieldByName("Content")
+				content1.FieldByName("TypeName").SetString("Issue")
+				issue1 := content1.FieldByName("Issue")
+				issue1.FieldByName("ID").SetString("issue-1")
+				issue1.FieldByName("Number").SetInt(1)
+				issue1.FieldByName("Title").SetString("Issue")
+				issue1.FieldByName("State").SetString("OPEN")
+				repo1 := issue1.FieldByName("Repository")
+				repo1.FieldByName("NameWithOwner").SetString("owner/repo")
+				newNodes.Index(0).Set(node1)
+
+				nodes.Set(newNodes)
+
+				// Indicate there's another page
+				pageInfoField.FieldByName("HasNextPage").SetBool(true)
+				pageInfoField.FieldByName("EndCursor").SetString("cursor-1")
+			}
+			return nil
+		},
+	}
+
+	client := NewClientWithGraphQL(mock)
+	items, err := client.GetProjectItems("proj-id", nil)
+
+	if err == nil {
+		t.Fatal("Expected error when second page fails")
+	}
+	if !strings.Contains(err.Error(), "API error on second page") {
+		t.Errorf("Expected error message about second page, got: %v", err)
+	}
+	if items != nil {
+		t.Errorf("Expected nil items on error, got %d items", len(items))
+	}
+}
+
+func TestGetProjectItems_Pagination_WithFilter(t *testing.T) {
+	callCount := 0
+
+	mock := &queryMockClient{
+		queryFunc: func(name string, query interface{}, variables map[string]interface{}) error {
+			if name == "GetProjectItems" {
+				callCount++
+				v := reflect.ValueOf(query).Elem()
+				node := v.FieldByName("Node")
+				projectV2 := node.FieldByName("ProjectV2")
+				items := projectV2.FieldByName("Items")
+				nodes := items.FieldByName("Nodes")
+				pageInfoField := items.FieldByName("PageInfo")
+
+				nodeType := nodes.Type().Elem()
+
+				if callCount == 1 {
+					// First page - 2 items, one matches filter
+					newNodes := reflect.MakeSlice(nodes.Type(), 2, 2)
+
+					node1 := reflect.New(nodeType).Elem()
+					node1.FieldByName("ID").SetString("item-1")
+					content1 := node1.FieldByName("Content")
+					content1.FieldByName("TypeName").SetString("Issue")
+					issue1 := content1.FieldByName("Issue")
+					issue1.FieldByName("ID").SetString("issue-1")
+					issue1.FieldByName("Number").SetInt(1)
+					issue1.FieldByName("Title").SetString("Match 1")
+					issue1.FieldByName("State").SetString("OPEN")
+					repo1 := issue1.FieldByName("Repository")
+					repo1.FieldByName("NameWithOwner").SetString("target/repo")
+					newNodes.Index(0).Set(node1)
+
+					node2 := reflect.New(nodeType).Elem()
+					node2.FieldByName("ID").SetString("item-2")
+					content2 := node2.FieldByName("Content")
+					content2.FieldByName("TypeName").SetString("Issue")
+					issue2 := content2.FieldByName("Issue")
+					issue2.FieldByName("ID").SetString("issue-2")
+					issue2.FieldByName("Number").SetInt(2)
+					issue2.FieldByName("Title").SetString("Other Repo")
+					issue2.FieldByName("State").SetString("OPEN")
+					repo2 := issue2.FieldByName("Repository")
+					repo2.FieldByName("NameWithOwner").SetString("other/repo")
+					newNodes.Index(1).Set(node2)
+
+					nodes.Set(newNodes)
+					pageInfoField.FieldByName("HasNextPage").SetBool(true)
+					pageInfoField.FieldByName("EndCursor").SetString("cursor-1")
+				} else {
+					// Second page - 1 item matching filter
+					newNodes := reflect.MakeSlice(nodes.Type(), 1, 1)
+
+					node3 := reflect.New(nodeType).Elem()
+					node3.FieldByName("ID").SetString("item-3")
+					content3 := node3.FieldByName("Content")
+					content3.FieldByName("TypeName").SetString("Issue")
+					issue3 := content3.FieldByName("Issue")
+					issue3.FieldByName("ID").SetString("issue-3")
+					issue3.FieldByName("Number").SetInt(3)
+					issue3.FieldByName("Title").SetString("Match 2")
+					issue3.FieldByName("State").SetString("OPEN")
+					repo3 := issue3.FieldByName("Repository")
+					repo3.FieldByName("NameWithOwner").SetString("target/repo")
+					newNodes.Index(0).Set(node3)
+
+					nodes.Set(newNodes)
+					pageInfoField.FieldByName("HasNextPage").SetBool(false)
+					pageInfoField.FieldByName("EndCursor").SetString("")
+				}
+			}
+			return nil
+		},
+	}
+
+	client := NewClientWithGraphQL(mock)
+	items, err := client.GetProjectItems("proj-id", &ProjectItemsFilter{Repository: "target/repo"})
+
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	if len(items) != 2 {
+		t.Fatalf("Expected 2 items matching filter across pages, got %d", len(items))
+	}
+	if items[0].Issue.Title != "Match 1" {
+		t.Errorf("Expected first item 'Match 1', got '%s'", items[0].Issue.Title)
+	}
+	if items[1].Issue.Title != "Match 2" {
+		t.Errorf("Expected second item 'Match 2', got '%s'", items[1].Issue.Title)
+	}
+}

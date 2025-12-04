@@ -253,12 +253,54 @@ type ProjectItemsFilter struct {
 	Repository string // Filter by repository (owner/repo format)
 }
 
-// GetProjectItems fetches all items from a project with their field values
+// GetProjectItems fetches all items from a project with their field values.
+// Uses cursor-based pagination to retrieve all items regardless of project size.
 func (c *Client) GetProjectItems(projectID string, filter *ProjectItemsFilter) ([]ProjectItem, error) {
 	if c.gql == nil {
 		return nil, fmt.Errorf("GraphQL client not initialized - are you authenticated with gh?")
 	}
 
+	var allItems []ProjectItem
+	var cursor *string
+
+	for {
+		items, pageInfo, err := c.getProjectItemsPage(projectID, cursor)
+		if err != nil {
+			return nil, err
+		}
+
+		// Filter and process items from this page
+		for _, item := range items {
+			// Apply repository filter if specified
+			if filter != nil && filter.Repository != "" {
+				if item.Issue != nil && item.Issue.Repository.Owner != "" {
+					repoName := item.Issue.Repository.Owner + "/" + item.Issue.Repository.Name
+					if repoName != filter.Repository {
+						continue
+					}
+				}
+			}
+			allItems = append(allItems, item)
+		}
+
+		// Check if there are more pages
+		if !pageInfo.HasNextPage {
+			break
+		}
+		cursor = &pageInfo.EndCursor
+	}
+
+	return allItems, nil
+}
+
+// pageInfo holds pagination information from GraphQL responses
+type pageInfo struct {
+	HasNextPage bool
+	EndCursor   string
+}
+
+// getProjectItemsPage fetches a single page of project items
+func (c *Client) getProjectItemsPage(projectID string, cursor *string) ([]ProjectItem, pageInfo, error) {
 	var query struct {
 		Node struct {
 			ProjectV2 struct {
@@ -307,18 +349,26 @@ func (c *Client) GetProjectItems(projectID string, filter *ProjectItemsFilter) (
 							}
 						} `graphql:"fieldValues(first: 20)"`
 					}
-				} `graphql:"items(first: 100)"`
+					PageInfo struct {
+						HasNextPage bool
+						EndCursor   string
+					}
+				} `graphql:"items(first: 100, after: $cursor)"`
 			} `graphql:"... on ProjectV2"`
 		} `graphql:"node(id: $projectId)"`
 	}
 
 	variables := map[string]interface{}{
 		"projectId": graphql.ID(projectID),
+		"cursor":    (*graphql.String)(nil),
+	}
+	if cursor != nil {
+		variables["cursor"] = graphql.String(*cursor)
 	}
 
 	err := c.gql.Query("GetProjectItems", &query, variables)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get project items: %w", err)
+		return nil, pageInfo{}, fmt.Errorf("failed to get project items: %w", err)
 	}
 
 	var items []ProjectItem
@@ -326,13 +376,6 @@ func (c *Client) GetProjectItems(projectID string, filter *ProjectItemsFilter) (
 		// Skip non-issue items (like draft issues or PRs)
 		if node.Content.TypeName != "Issue" {
 			continue
-		}
-
-		// Apply repository filter if specified
-		if filter != nil && filter.Repository != "" {
-			if node.Content.Issue.Repository.NameWithOwner != filter.Repository {
-				continue
-			}
 		}
 
 		item := ProjectItem{
@@ -385,7 +428,10 @@ func (c *Client) GetProjectItems(projectID string, filter *ProjectItemsFilter) (
 		items = append(items, item)
 	}
 
-	return items, nil
+	return items, pageInfo{
+		HasNextPage: query.Node.ProjectV2.Items.PageInfo.HasNextPage,
+		EndCursor:   query.Node.ProjectV2.Items.PageInfo.EndCursor,
+	}, nil
 }
 
 // splitRepoName splits "owner/repo" into parts
