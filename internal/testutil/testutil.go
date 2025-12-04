@@ -9,13 +9,54 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/scooter-indie/gh-pmu/internal/api"
 )
+
+var (
+	repoRoot     string
+	repoRootOnce sync.Once
+)
+
+// getRepoRoot finds the repository root by looking for .gh-pmu.yml
+func getRepoRoot() string {
+	repoRootOnce.Do(func() {
+		// Start from current directory and walk up
+		dir, err := os.Getwd()
+		if err != nil {
+			return
+		}
+
+		for {
+			// Check for .gh-pmu.yml (the config file at repo root)
+			if _, err := os.Stat(filepath.Join(dir, ".gh-pmu.yml")); err == nil {
+				repoRoot = dir
+				return
+			}
+
+			// Check for go.mod as fallback
+			if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+				repoRoot = dir
+				return
+			}
+
+			// Move to parent directory
+			parent := filepath.Dir(dir)
+			if parent == dir {
+				// Reached root without finding markers
+				break
+			}
+			dir = parent
+		}
+	})
+	return repoRoot
+}
 
 // TestEnv holds environment configuration for integration tests
 type TestEnv struct {
@@ -122,7 +163,7 @@ func DeleteTestIssue(t *testing.T, issueNum int) {
 	cmd := exec.Command("gh", "issue", "close",
 		"--repo", fmt.Sprintf("%s/%s", env.RepoOwner, env.RepoName),
 		strconv.Itoa(issueNum),
-		"--reason", "not_planned",
+		"--reason", "not planned",
 	)
 
 	output, err := cmd.CombinedOutput()
@@ -191,6 +232,11 @@ func RunCommand(t *testing.T, args ...string) *CommandResult {
 
 	cmd := exec.Command("gh", fullArgs...)
 
+	// Set working directory to repo root so gh pmu can find config
+	if root := getRepoRoot(); root != "" {
+		cmd.Dir = root
+	}
+
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -220,6 +266,11 @@ func RunCommandWithEnv(t *testing.T, env map[string]string, args ...string) *Com
 	fullArgs := append([]string{"pmu"}, args...)
 
 	cmd := exec.Command("gh", fullArgs...)
+
+	// Set working directory to repo root so gh pmu can find config
+	if root := getRepoRoot(); root != "" {
+		cmd.Dir = root
+	}
 
 	// Copy current environment and add custom variables
 	cmd.Env = os.Environ()
