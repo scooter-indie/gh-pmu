@@ -593,9 +593,325 @@ test-cleanup:                                ## Cleanup test resources
 
 ---
 
+## Appendix C: runCreate Integration Test Requirements
+
+The `runCreate` function in `cmd/create.go` currently has 44.9% unit test coverage. The uncovered portions (lines 93-139) involve actual GitHub API calls that cannot be tested without authenticated access. This section documents the integration test requirements for achieving full coverage.
+
+### Current Coverage Gap
+
+The following code paths require integration testing:
+
+```go
+// Line 93: CreateIssue API call
+issue, err := client.CreateIssue(owner, repo, title, body, labels)
+
+// Line 99: GetProject API call
+project, err := client.GetProject(cfg.Project.Owner, cfg.Project.Number)
+
+// Line 104: AddIssueToProject mutation
+itemID, err := client.AddIssueToProject(project.ID, issue.ID)
+
+// Lines 110-135: SetProjectItemField mutations for status/priority
+client.SetProjectItemField(project.ID, itemID, "Status", statusValue)
+client.SetProjectItemField(project.ID, itemID, "Priority", priorityValue)
+
+// Lines 138-139: Success output
+fmt.Printf("Created issue #%d: %s\n", issue.Number, issue.Title)
+```
+
+### Proposed Integration Test
+
+```go
+//go:build integration
+
+package cmd
+
+import (
+    "os"
+    "strings"
+    "testing"
+
+    "github.com/scooter-indie/gh-pmu/internal/testutil"
+)
+
+func TestRunCreate_Integration_CreatesIssueWithFields(t *testing.T) {
+    // ARRANGE: Set up test environment
+    testutil.RequireTestEnv(t)
+
+    cfg := testutil.CreateTempConfigForTest(t, testutil.TestConfig{
+        ProjectOwner:  os.Getenv("TEST_PROJECT_OWNER"),
+        ProjectNumber: os.Getenv("TEST_PROJECT_NUMBER"),
+        Repository:    os.Getenv("TEST_REPO_OWNER") + "/" + os.Getenv("TEST_REPO_NAME"),
+    })
+    defer testutil.CleanupTempConfig(t, cfg)
+
+    uniqueTitle := "Integration-Test-Issue-" + testutil.RandomSuffix()
+
+    // ACT: Run create command
+    output, err := testutil.RunCommandInDir(t, cfg.Dir,
+        "gh", "pmu", "create",
+        "--title", uniqueTitle,
+        "--body", "Created by integration test",
+        "--status", "Todo",
+        "--priority", "Medium",
+        "--label", "test-label",
+    )
+
+    // ASSERT: Command succeeded
+    if err != nil {
+        t.Fatalf("create command failed: %v\nOutput: %s", err, output)
+    }
+
+    // Extract issue number from output
+    issueNum := testutil.ExtractIssueNumber(t, output)
+    defer testutil.DeleteIssue(t, issueNum) // Cleanup
+
+    // Verify issue was created
+    if !strings.Contains(output, "Created issue #") {
+        t.Errorf("Expected success message, got: %s", output)
+    }
+
+    // Verify issue is in project with correct fields
+    item := testutil.GetProjectItem(t, issueNum)
+
+    if item.Fields["Status"] != "Todo" {
+        t.Errorf("Expected Status='Todo', got '%s'", item.Fields["Status"])
+    }
+    if item.Fields["Priority"] != "Medium" {
+        t.Errorf("Expected Priority='Medium', got '%s'", item.Fields["Priority"])
+    }
+
+    // Verify labels were applied
+    issue := testutil.GetIssue(t, issueNum)
+    if !testutil.HasLabel(issue, "test-label") {
+        t.Errorf("Expected issue to have 'test-label'")
+    }
+}
+
+func TestRunCreate_Integration_AppliesDefaultsFromConfig(t *testing.T) {
+    testutil.RequireTestEnv(t)
+
+    cfg := testutil.CreateTempConfigForTest(t, testutil.TestConfig{
+        ProjectOwner:  os.Getenv("TEST_PROJECT_OWNER"),
+        ProjectNumber: os.Getenv("TEST_PROJECT_NUMBER"),
+        Repository:    os.Getenv("TEST_REPO_OWNER") + "/" + os.Getenv("TEST_REPO_NAME"),
+        Defaults: testutil.Defaults{
+            Status:   "Backlog",
+            Priority: "Low",
+            Labels:   []string{"auto-created"},
+        },
+    })
+    defer testutil.CleanupTempConfig(t, cfg)
+
+    uniqueTitle := "Integration-Test-Defaults-" + testutil.RandomSuffix()
+
+    // ACT: Run create without explicit status/priority
+    output, err := testutil.RunCommandInDir(t, cfg.Dir,
+        "gh", "pmu", "create",
+        "--title", uniqueTitle,
+    )
+
+    if err != nil {
+        t.Fatalf("create command failed: %v", err)
+    }
+
+    issueNum := testutil.ExtractIssueNumber(t, output)
+    defer testutil.DeleteIssue(t, issueNum)
+
+    // ASSERT: Defaults were applied
+    item := testutil.GetProjectItem(t, issueNum)
+
+    if item.Fields["Status"] != "Backlog" {
+        t.Errorf("Expected default Status='Backlog', got '%s'", item.Fields["Status"])
+    }
+    if item.Fields["Priority"] != "Low" {
+        t.Errorf("Expected default Priority='Low', got '%s'", item.Fields["Priority"])
+    }
+
+    issue := testutil.GetIssue(t, issueNum)
+    if !testutil.HasLabel(issue, "auto-created") {
+        t.Errorf("Expected default label 'auto-created'")
+    }
+}
+
+func TestRunCreate_Integration_MergesLabels(t *testing.T) {
+    testutil.RequireTestEnv(t)
+
+    cfg := testutil.CreateTempConfigForTest(t, testutil.TestConfig{
+        ProjectOwner:  os.Getenv("TEST_PROJECT_OWNER"),
+        ProjectNumber: os.Getenv("TEST_PROJECT_NUMBER"),
+        Repository:    os.Getenv("TEST_REPO_OWNER") + "/" + os.Getenv("TEST_REPO_NAME"),
+        Defaults: testutil.Defaults{
+            Labels: []string{"pm-tracked"},
+        },
+    })
+    defer testutil.CleanupTempConfig(t, cfg)
+
+    uniqueTitle := "Integration-Test-Labels-" + testutil.RandomSuffix()
+
+    // ACT: Run create with additional labels
+    output, err := testutil.RunCommandInDir(t, cfg.Dir,
+        "gh", "pmu", "create",
+        "--title", uniqueTitle,
+        "--label", "bug",
+        "--label", "urgent",
+    )
+
+    if err != nil {
+        t.Fatalf("create command failed: %v", err)
+    }
+
+    issueNum := testutil.ExtractIssueNumber(t, output)
+    defer testutil.DeleteIssue(t, issueNum)
+
+    // ASSERT: Both default and CLI labels present
+    issue := testutil.GetIssue(t, issueNum)
+
+    expectedLabels := []string{"pm-tracked", "bug", "urgent"}
+    for _, label := range expectedLabels {
+        if !testutil.HasLabel(issue, label) {
+            t.Errorf("Expected label '%s' to be present", label)
+        }
+    }
+}
+
+func TestRunCreate_Integration_FieldValueAliases(t *testing.T) {
+    testutil.RequireTestEnv(t)
+
+    cfg := testutil.CreateTempConfigForTest(t, testutil.TestConfig{
+        ProjectOwner:  os.Getenv("TEST_PROJECT_OWNER"),
+        ProjectNumber: os.Getenv("TEST_PROJECT_NUMBER"),
+        Repository:    os.Getenv("TEST_REPO_OWNER") + "/" + os.Getenv("TEST_REPO_NAME"),
+        Fields: map[string]testutil.FieldConfig{
+            "status": {
+                Field: "Status",
+                Values: map[string]string{
+                    "todo": "Todo",
+                    "wip":  "In Progress",
+                    "done": "Done",
+                },
+            },
+            "priority": {
+                Field: "Priority",
+                Values: map[string]string{
+                    "p0": "Critical",
+                    "p1": "High",
+                    "p2": "Medium",
+                },
+            },
+        },
+    })
+    defer testutil.CleanupTempConfig(t, cfg)
+
+    uniqueTitle := "Integration-Test-Aliases-" + testutil.RandomSuffix()
+
+    // ACT: Use aliases instead of actual field values
+    output, err := testutil.RunCommandInDir(t, cfg.Dir,
+        "gh", "pmu", "create",
+        "--title", uniqueTitle,
+        "--status", "wip",      // Alias for "In Progress"
+        "--priority", "p1",     // Alias for "High"
+    )
+
+    if err != nil {
+        t.Fatalf("create command failed: %v", err)
+    }
+
+    issueNum := testutil.ExtractIssueNumber(t, output)
+    defer testutil.DeleteIssue(t, issueNum)
+
+    // ASSERT: Aliases resolved to actual values
+    item := testutil.GetProjectItem(t, issueNum)
+
+    if item.Fields["Status"] != "In Progress" {
+        t.Errorf("Expected Status='In Progress' (from alias 'wip'), got '%s'", item.Fields["Status"])
+    }
+    if item.Fields["Priority"] != "High" {
+        t.Errorf("Expected Priority='High' (from alias 'p1'), got '%s'", item.Fields["Priority"])
+    }
+}
+```
+
+### Required Test Utilities
+
+The integration tests require the following additions to `internal/testutil/`:
+
+```go
+// RequireTestEnv skips the test if integration test environment is not configured
+func RequireTestEnv(t *testing.T) {
+    required := []string{
+        "TEST_PROJECT_OWNER",
+        "TEST_PROJECT_NUMBER",
+        "TEST_REPO_OWNER",
+        "TEST_REPO_NAME",
+    }
+    for _, env := range required {
+        if os.Getenv(env) == "" {
+            t.Skipf("Skipping: %s not set", env)
+        }
+    }
+}
+
+// ExtractIssueNumber parses "Created issue #123" output
+func ExtractIssueNumber(t *testing.T, output string) int
+
+// DeleteIssue removes a test issue (cleanup)
+func DeleteIssue(t *testing.T, issueNum int)
+
+// GetProjectItem fetches project item with field values
+func GetProjectItem(t *testing.T, issueNum int) *ProjectItem
+
+// GetIssue fetches issue details including labels
+func GetIssue(t *testing.T, issueNum int) *Issue
+
+// HasLabel checks if issue has a specific label
+func HasLabel(issue *Issue, label string) bool
+```
+
+### Environment Variables
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `TEST_PROJECT_OWNER` | Owner of test project | `scooter-indie` |
+| `TEST_PROJECT_NUMBER` | Test project number | `99` |
+| `TEST_REPO_OWNER` | Owner of test repository | `scooter-indie` |
+| `TEST_REPO_NAME` | Test repository name | `gh-pmu-test` |
+
+### Running the Tests
+
+```bash
+# Set environment variables
+export TEST_PROJECT_OWNER="scooter-indie"
+export TEST_PROJECT_NUMBER="99"
+export TEST_REPO_OWNER="scooter-indie"
+export TEST_REPO_NAME="gh-pmu-test"
+
+# Run integration tests only
+go test -v -tags=integration ./cmd/... -run "Integration"
+
+# Run specific create integration tests
+go test -v -tags=integration ./cmd/... -run "TestRunCreate_Integration"
+```
+
+### Expected Coverage After Integration Tests
+
+With these integration tests in place, `runCreate` coverage should increase from 44.9% to approximately 95%, covering:
+
+- Issue creation via API (line 93)
+- Project lookup (line 99)
+- Adding issue to project (line 104)
+- Setting status field (lines 110-122)
+- Setting priority field (lines 124-135)
+- Success output (lines 138-139)
+
+The only remaining uncovered paths would be error handling for non-fatal warnings (lines 114, 120, 127, 133).
+
+---
+
 ## Revision History
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 1.0 | 2025-12-03 | PRD-Analyst | Initial proposal |
+| 1.1 | 2025-12-03 | API-Integration-Specialist | Added Appendix C: runCreate integration test requirements |
 
