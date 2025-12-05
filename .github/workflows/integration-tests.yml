@@ -78,13 +78,12 @@ jobs:
           echo "Integration tests passed"
 
   uat:
-    if: ${{ github.event.inputs.test_type == 'all' || github.event.inputs.test_type == 'uat' }}
     runs-on: ubuntu-latest
     environment: integration-tests
     needs: [integration]
     # Run UAT even if integration is skipped (when test_type is 'uat')
     # But wait for integration if both are running
-    if: ${{ always() && (github.event.inputs.test_type == 'uat' || needs.integration.result == 'success' || needs.integration.result == 'skipped') }}
+    if: ${{ always() && (github.event.inputs.test_type == 'all' || github.event.inputs.test_type == 'uat') && (needs.integration.result == 'success' || needs.integration.result == 'skipped') }}
 
     steps:
       - name: Checkout
